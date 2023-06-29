@@ -30,9 +30,13 @@ def isNowInTimePeriod(startTime, endTime, nowTime):
 
 class PushoverPoster:
     def __init__(self):
-        pass
+        self.delay = 300
+        self.ltime = time.time() - self.delay - 10
 
     def critical_message(self):
+        if time.time() - self.ltime < self.delay:
+            return None
+
         conn = http.client.HTTPSConnection("api.pushover.net:443")
         conn.request("POST", "/1/messages.json",
           urllib.parse.urlencode({
@@ -42,9 +46,10 @@ class PushoverPoster:
             "message": "Wake up! Heather is night eating!",
             "priority": 2,
             "retry": 30,
-            "expire": 600,
+            "expire": self.delay,
           }), { "Content-type": "application/x-www-form-urlencoded" })
         res = conn.getresponse()
+        self.ltime = time.time()
         return res
 
 
@@ -54,7 +59,6 @@ class MyAudio:
         self.sound = AudioSegment.from_file(sound_file, format=format)
 
     def play_sound(self):
-        print("playing sound")
         play(self.sound)
 
 
@@ -88,25 +92,32 @@ class MotionDetector():
             self.encoder.output = FileOutput(f"video/recordings/{int(time.time())}.h264")
             self.picam2.start_encoder()
             self.encoding = True
+        print(f'> Motion Detected, {mse}')
         self.ltime = time.time()
         self.notify()
 
     def handle_motion_stopped(self, mse):
-        if self.encoding and time.time() - self.ltime > 2.0:
+        if self.encoding and time.time() - self.ltime > 5.0:
             self.picam2.stop_encoder()
             print("Motion Stopped", mse)
             self.encoding = False
 
     def is_scheduled(self):
-        return isNowInTimePeriod(dt.time(22,51), dt.time(3,01), dt.datetime.now().time())
+        return isNowInTimePeriod(dt.time(22,50), dt.time(3,1), dt.datetime.now().time())
 
     def is_motion_detected(self, mse):
-        return mse > 8.1 and self.is_scheduled()
+        return mse > 18
 
 
     def detect_motion(self):
         prev = None
         while True:
+            if not self.is_scheduled():
+                sleep_time = 600
+                print(f'Not Scheduled, sleeping {sleep_time}s')
+                time.sleep(sleep_time)
+                continue
+            # time.sleep(1)
             cur = self.picam2.capture_buffer("lores")
             cur = cur[:self.w * self.h].reshape(self.h, self.w)
             if prev is not None:
@@ -116,6 +127,7 @@ class MotionDetector():
                     self.handle_motion_detected(mse)
                 else:
                     self.handle_motion_stopped(mse)
+                    time.sleep(1)
             prev = cur
 
 

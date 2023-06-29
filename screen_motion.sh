@@ -1,4 +1,4 @@
 #! /bin/bash
 
-screen -d -m run.sh
+screen -d -m ./run.sh
 
