@@ -1,7 +1,8 @@
 
 #!/usr/bin/python3
 
-import time
+import os, time
+import datetime as dt
 
 import numpy as np
 
@@ -14,19 +15,37 @@ from pydub.playback import play
 
 import http.client, urllib
 
+from dotenv import load_dotenv
+load_dotenv('.env.secret')
+
+
+# https://stackoverflow.com/a/38836918/3277877
+def isNowInTimePeriod(startTime, endTime, nowTime):
+    if startTime < endTime:
+        return nowTime >= startTime and nowTime <= endTime
+    else:
+        #Over midnight:
+        return nowTime >= startTime or nowTime <= endTime
+
+
 class PushoverPoster:
     def __init__(self):
         pass
 
-    def post_message():
+    def critical_message(self):
         conn = http.client.HTTPSConnection("api.pushover.net:443")
         conn.request("POST", "/1/messages.json",
           urllib.parse.urlencode({
-            "token": "APP_TOKEN",
-            "user": "USER_KEY",
-            "message": "hello world",
+            "token": os.getenv('APP_TOKEN'),
+            "user": os.getenv('USER_KEY'),
+            "title": "Heather is Night Eating",
+            "message": "Wake up! Heather is night eating!",
+            "priority": 2,
+            "retry": 30,
+            "expire": 600,
           }), { "Content-type": "application/x-www-form-urlencoded" })
-        conn.getresponse()
+        res = conn.getresponse()
+        return res
 
 
 class MyAudio:
@@ -38,12 +57,10 @@ class MyAudio:
         print("playing sound")
         play(self.sound)
 
-audio_file = "524345__javierserrat__pigeon.mp3"
-audio = MyAudio(f'audio/mp3_tracks/{audio_file}')
 
 
 class MotionDetector():
-    def __init__(self):
+    def __init__(self, audio_file='pigeon-3.0.mp3'):
         self.picam2 = Picamera2()
         self.encoder = H264Encoder(1000000)
 
@@ -58,21 +75,34 @@ class MotionDetector():
         self.picam2.encoder = self.encoder
         self.picam2.start()
 
+        self.pushover = PushoverPoster()
+        self.audio = MyAudio(f'audio/mp3_tracks/{audio_file}')
 
-    def motion_detected(self, mse):
+    def notify(self):
+        self.pushover.critical_message()
+        self.audio.play_sound()
+
+    def handle_motion_detected(self, mse):
         if not self.encoding:
+            print("New Motion", mse)
             self.encoder.output = FileOutput(f"video/recordings/{int(time.time())}.h264")
             self.picam2.start_encoder()
             self.encoding = True
-            print("New Motion", mse)
-            audio.play_sound()
         self.ltime = time.time()
+        self.notify()
 
-    def motion_stopped(self, mse):
+    def handle_motion_stopped(self, mse):
         if self.encoding and time.time() - self.ltime > 2.0:
             self.picam2.stop_encoder()
             print("Motion Stopped", mse)
             self.encoding = False
+
+    def is_scheduled(self):
+        return isNowInTimePeriod(dt.time(22,51), dt.time(3,01), dt.datetime.now().time())
+
+    def is_motion_detected(self, mse):
+        return mse > 8.1 and self.is_scheduled()
+
 
     def detect_motion(self):
         prev = None
@@ -82,13 +112,13 @@ class MotionDetector():
             if prev is not None:
                 # Measure pixels differences between current and previous frame
                 mse = np.square(np.subtract(cur, prev)).mean()
-                if mse > 8:
-                    self.motion_detected(mse)
+                if self.is_motion_detected(mse):
+                    self.handle_motion_detected(mse)
                 else:
-                    self.motion_stopped(mse)
+                    self.handle_motion_stopped(mse)
             prev = cur
 
 
-motion = MotionDetector()
+motion = MotionDetector(audio_file='pigeon-3.0.mp3')
 motion.detect_motion()
 

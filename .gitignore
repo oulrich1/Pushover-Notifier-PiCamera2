@@ -2,6 +2,6 @@
 
 audio/raw_tracks/**
 audio/mp3_tracks/**
-audio/to_convert/**
+audio/to_concat/**
 
 video/**

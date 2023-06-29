@@ -9,7 +9,7 @@ def concat():
 
     # let's just include the first 30 seconds of the first song (slicing
     # is done by milliseconds)
-    beginning_of_song = first_song[:30*1000]
+    beginning_of_song = first_song[:3*1000]
 
     playlist = beginning_of_song
     for song in playlist_songs:
@@ -24,7 +24,7 @@ def concat():
     playlist_length_seconds = len(playlist) / 1000
 
     # lets save it!
-    with open(f'-{playlist_length_seconds}.mp3', 'wb') as out_f:
+    with open(f'pigeon-{playlist_length_seconds}.mp3', 'wb') as out_f:
         playlist.export(out_f, format='mp3')
 
 
@@ -32,4 +32,13 @@ def concat():
 def overlay():
     pass
 
-concat()
+def take():
+    playlist_songs = [AudioSegment.from_mp3(mp3_file) for mp3_file in glob("to_concat/*.mp3")]
+    first_song = playlist_songs.pop(0)
+    playlist = first_song[:3*1000]
+    playlist_length_seconds = len(playlist) / 1000
+    with open(f'pigeon-{playlist_length_seconds}.mp3', 'wb') as out_f:
+        playlist.export(out_f, format='mp3')
+
+take()
+
