@@ -103,7 +103,7 @@ class MotionDetector():
             self.encoding = False
 
     def is_scheduled(self):
-        return isNowInTimePeriod(dt.time(22,50), dt.time(3,1), dt.datetime.now().time())
+        return isNowInTimePeriod(dt.time(22,50), dt.time(4,1), dt.datetime.now().time())
 
     def is_motion_detected(self, mse):
         return mse > 18
